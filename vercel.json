@@ -1,0 +1,1 @@
+{"$schema":"https://openapi.vercel.sh/vercel.json","functions":{"api/codes.js":{"maxDuration":60},"api/scrape.js":{"maxDuration":60}}}

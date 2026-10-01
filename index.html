@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Muse Referral Codes — Public Code Board</title>
+<meta name="description" content="Publicly posted Meta Muse invite/referral codes, newest first. Validity not verified — redeem within 48h of signup.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">🎟️ Muse <span>Referral Board</span></div>
+  <button id="refreshBtn" class="btn" type="button">↻ Refresh</button>
+</header>
+
+<div class="banner" role="note">
+  <strong>Heads up:</strong> these codes were <em>posted publicly</em> — nobody here verified they still work.
+  Each code has limited uses, and each Muse account can redeem <strong>only one code, within 48 hours of signup</strong>.
+  Try the newest first. We never auto-redeem anything.
+</div>
+
+<main class="wrap">
+  <div class="controls">
+    <input id="filter" type="search" placeholder="Filter codes…" autocomplete="off">
+    <div id="meta" class="meta">loading…</div>
+  </div>
+
+  <section id="howto" class="card howto">
+    <h2>How to redeem</h2>
+    <ol>
+      <li>Create your Muse account at <a href="https://muse.ai" rel="noopener" target="_blank">muse.ai</a> (US &amp; Canada).</li>
+      <li><strong>App:</strong> Settings → <em>Redeem token</em>.<br>
+          <strong>Web:</strong> Settings → General → Usage → <em>Redeem invite code</em>.</li>
+      <li>Paste the code and confirm — <strong>within 48 hours of creating your account</strong>.</li>
+      <li>Check your token balance to confirm the bonus landed.</li>
+    </ol>
+  </section>
+
+  <div id="list" class="list"></div>
+
+  <footer class="foot">
+    Codes scraped from public posts (Reddit, public web). Cached 30 min to respect rate limits.
+    Not affiliated with Meta. Tokens are usage credit, not cash.
+  </footer>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
