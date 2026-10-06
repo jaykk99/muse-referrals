@@ -240,7 +240,16 @@ async function scrapeAll() {
 // ---------------------------------------------------------------------------
 // Cache + merge
 // ---------------------------------------------------------------------------
+// In-memory cache, one per serverless instance: each Vercel instance keeps its
+// own copy and enforces its own throttle. Worst case is one scrape per
+// instance per MIN_INTERVAL_MS, which still protects upstream sources.
+// ---------------------------------------------------------------------------
 let CACHE = { codes: [], fetchedAt: 0, scraping: false };
+
+// Test hook: lets tests inject a stub scraper instead of hitting the network.
+let _scrapeImpl = scrapeAll;
+function _setScrapeImpl(fn) { _scrapeImpl = fn; }
+function _resetCache() { CACHE = { codes: [], fetchedAt: 0, scraping: false }; }
 
 function mergeCodes(existing, fresh) {
   const map = new Map();
@@ -258,19 +267,29 @@ function seedIfEmpty(codes) {
 
 async function getCodes(force) {
   const now = Date.now();
+  const hasCache = CACHE.codes.length > 0;
   if (CACHE.scraping) {
     return { codes: seedIfEmpty(CACHE.codes), cached: true, inProgress: true, fetchedAt: CACHE.fetchedAt };
   }
-  const freshEnough = now - CACHE.fetchedAt < TTL_MS && CACHE.codes.length > 0;
+  const freshEnough = hasCache && now - CACHE.fetchedAt < TTL_MS;
   if (!force && freshEnough) {
     return { codes: CACHE.codes, cached: true, fetchedAt: CACHE.fetchedAt };
   }
-  if (!force && now - CACHE.fetchedAt < MIN_INTERVAL_MS && CACHE.codes.length > 0) {
-    return { codes: CACHE.codes, cached: true, fetchedAt: CACHE.fetchedAt };
+  // Hard throttle: force=1 only skips the TTL gate — it NEVER skips the
+  // MIN_INTERVAL floor. Without this, ?force=1 / /api/scrape could hammer
+  // pullpush.io and Bing with zero delay. Keyed on "a scrape ran recently"
+  // (not on cache contents) so empty results don't escape the throttle.
+  // Cold starts (fetchedAt=0) always proceed so first loads still work.
+  if (CACHE.fetchedAt && now - CACHE.fetchedAt < MIN_INTERVAL_MS) {
+    return {
+      codes: seedIfEmpty(CACHE.codes), cached: true, fetchedAt: CACHE.fetchedAt,
+      throttled: true,
+      retryAfterMs: MIN_INTERVAL_MS - (now - CACHE.fetchedAt),
+    };
   }
   CACHE.scraping = true;
   try {
-    const fresh = await scrapeAll();
+    const fresh = await _scrapeImpl();
     CACHE.codes = mergeCodes(CACHE.codes, fresh);
     CACHE.fetchedAt = Date.now();
   } catch (e) {
@@ -283,3 +302,4 @@ async function getCodes(force) {
 }
 
 module.exports = { getCodes, scrapeAll, scrapePullpush, scrapeBing, extractCodes, detectTerms, SEED_CODES };
+module.exports._test = { setScrapeImpl: _setScrapeImpl, resetCache: _resetCache, cache: () => CACHE, MIN_INTERVAL_MS, TTL_MS };

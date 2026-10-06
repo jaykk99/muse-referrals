@@ -1,1 +1,1 @@
-{"description":"Public Muse invite/referral code aggregator (keyless scraping)","name":"muse-referrals","private":true,"version":"1.0.0"}
+{"description":"Public Muse invite/referral code aggregator (keyless scraping)","name":"muse-referrals","private":true,"scripts":{"test":"node --test test/*.test.js"},"version":"1.0.0"}

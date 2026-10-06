@@ -1,4 +1,5 @@
 // GET /api/codes[?force=1] — cached referral codes, newest first.
+// force=1 refreshes past the 30-min TTL but never bypasses the 60s scrape throttle.
 const { getCodes } = require('./_lib/scrape');
 
 module.exports = async (req, res) => {
