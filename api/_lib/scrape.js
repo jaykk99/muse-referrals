@@ -224,9 +224,32 @@ async function scrapeBing() {
 }
 
 async function scrapeAll() {
+  const { codes } = await scrapeAllWithStats();
+  return codes;
+}
+
+// Same as scrapeAll but also reports per-source stats for the history log.
+// Stats shape: { pullpush: {ok, ms, found, error?}, bing: {...} }
+async function scrapeAllWithStats() {
+  const stats = {};
   const raw = [];
-  try { raw.push(...await scrapePullpush()); } catch (e) { /* source down */ }
-  try { raw.push(...await scrapeBing()); } catch (e) { /* source down */ }
+  const t0 = Date.now();
+  try {
+    const s0 = Date.now();
+    const pp = await scrapePullpush();
+    stats.pullpush = { ok: true, ms: Date.now() - s0, found: pp.length };
+    raw.push(...pp);
+  } catch (e) {
+    stats.pullpush = { ok: false, ms: 0, found: 0, error: String((e && e.message) || e).slice(0, 120) };
+  }
+  try {
+    const s0 = Date.now();
+    const b = await scrapeBing();
+    stats.bing = { ok: true, ms: Date.now() - s0, found: b.length };
+    raw.push(...b);
+  } catch (e) {
+    stats.bing = { ok: false, ms: 0, found: 0, error: String((e && e.message) || e).slice(0, 120) };
+  }
   const now = new Date().toISOString();
   const seen = new Map();
   for (const r of raw) {
@@ -234,8 +257,66 @@ async function scrapeAll() {
       seen.set(r.code, { ...r, foundAt: r.foundAt || now, verified: false, seed: false });
     }
   }
-  return [...seen.values()];
+  return { codes: [...seen.values()], stats, ms: Date.now() - t0 };
 }
+
+// ---------------------------------------------------------------------------
+// Stale-code annotation
+// ---------------------------------------------------------------------------
+// Codes have limited uses (~20-30) and a 48h redemption window per account,
+// so a code found weeks ago is probably used up. This doesn't verify anything
+// (only redeeming does) — it just labels old codes so users try newest first.
+const STALE_AFTER_MS = 14 * 24 * 60 * 60 * 1000;
+
+function annotateCodes(codes, nowMs) {
+  const now = nowMs == null ? Date.now() : nowMs;
+  return codes.map((c) => {
+    const age = now - new Date(c.foundAt || 0).getTime();
+    return { ...c, stale: age > STALE_AFTER_MS, ageDays: Math.max(0, Math.floor(age / 86400000)) };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Server-side filtering for API consumers (the UI also filters client-side).
+//   fresh=1  -> drop stale codes
+//   q=text   -> match code, source title, terms, or context (case-insensitive)
+// ---------------------------------------------------------------------------
+function filterCodes(codes, query) {
+  let out = codes || [];
+  const q = query || {};
+  if (q.fresh === '1' || q.fresh === 1 || q.fresh === true) {
+    out = out.filter((c) => !c.stale);
+  }
+  const needle = String(q.q || '').trim().toLowerCase();
+  if (needle) {
+    out = out.filter((c) =>
+      String(c.code || '').toLowerCase().includes(needle) ||
+      String(c.sourceTitle || '').toLowerCase().includes(needle) ||
+      String(c.terms || '').toLowerCase().includes(needle) ||
+      String(c.context || '').toLowerCase().includes(needle));
+  }
+  return out;
+}
+// Serverless instances each keep their own history — the panel shows what
+// THIS instance has done. Honest limitation, documented in the UI.
+// ---------------------------------------------------------------------------
+// Scrape history (in-memory ring buffer, last 20 runs)
+// ---------------------------------------------------------------------------
+// Serverless instances each keep their own history — the panel shows what
+// THIS instance has done. Honest limitation, documented in the UI.
+const HISTORY_MAX = 20;
+let HISTORY = [];
+
+function recordHistory(entry) {
+  HISTORY.unshift({ at: new Date().toISOString(), ...entry });
+  if (HISTORY.length > HISTORY_MAX) HISTORY.length = HISTORY_MAX;
+}
+
+function getHistory() {
+  return HISTORY.slice();
+}
+
+function _resetHistory() { HISTORY = []; }
 
 // ---------------------------------------------------------------------------
 // Cache + merge
@@ -247,7 +328,9 @@ async function scrapeAll() {
 let CACHE = { codes: [], fetchedAt: 0, scraping: false };
 
 // Test hook: lets tests inject a stub scraper instead of hitting the network.
-let _scrapeImpl = scrapeAll;
+// The stub may return a bare array of codes (like the old contract) or
+// {codes, stats} like scrapeAllWithStats.
+let _scrapeImpl = scrapeAllWithStats;
 function _setScrapeImpl(fn) { _scrapeImpl = fn; }
 function _resetCache() { CACHE = { codes: [], fetchedAt: 0, scraping: false }; }
 
@@ -269,11 +352,11 @@ async function getCodes(force) {
   const now = Date.now();
   const hasCache = CACHE.codes.length > 0;
   if (CACHE.scraping) {
-    return { codes: seedIfEmpty(CACHE.codes), cached: true, inProgress: true, fetchedAt: CACHE.fetchedAt };
+    return { codes: annotateCodes(seedIfEmpty(CACHE.codes)), cached: true, inProgress: true, fetchedAt: CACHE.fetchedAt };
   }
   const freshEnough = hasCache && now - CACHE.fetchedAt < TTL_MS;
   if (!force && freshEnough) {
-    return { codes: CACHE.codes, cached: true, fetchedAt: CACHE.fetchedAt };
+    return { codes: annotateCodes(CACHE.codes), cached: true, fetchedAt: CACHE.fetchedAt };
   }
   // Hard throttle: force=1 only skips the TTL gate — it NEVER skips the
   // MIN_INTERVAL floor. Without this, ?force=1 / /api/scrape could hammer
@@ -282,24 +365,44 @@ async function getCodes(force) {
   // Cold starts (fetchedAt=0) always proceed so first loads still work.
   if (CACHE.fetchedAt && now - CACHE.fetchedAt < MIN_INTERVAL_MS) {
     return {
-      codes: seedIfEmpty(CACHE.codes), cached: true, fetchedAt: CACHE.fetchedAt,
+      codes: annotateCodes(seedIfEmpty(CACHE.codes)), cached: true, fetchedAt: CACHE.fetchedAt,
       throttled: true,
       retryAfterMs: MIN_INTERVAL_MS - (now - CACHE.fetchedAt),
     };
   }
   CACHE.scraping = true;
+  let fresh = [];
+  let stats = null;
+  let scrapeError = null;
+  const s0 = Date.now();
   try {
-    const fresh = await _scrapeImpl();
+    const out = await _scrapeImpl();
+    // The real impl returns {codes, stats}; test stubs return a bare array.
+    if (Array.isArray(out)) {
+      fresh = out;
+    } else {
+      fresh = out.codes || [];
+      stats = out.stats || null;
+    }
     CACHE.codes = mergeCodes(CACHE.codes, fresh);
     CACHE.fetchedAt = Date.now();
   } catch (e) {
+    scrapeError = String((e && e.message) || e).slice(0, 160);
     // keep old cache on failure
   } finally {
     CACHE.scraping = false;
   }
-  const codes = seedIfEmpty(CACHE.codes);
+  recordHistory({
+    ok: !scrapeError,
+    ms: Date.now() - s0,
+    found: fresh.length,
+    total: CACHE.codes.length,
+    stats,
+    ...(scrapeError ? { error: scrapeError } : {}),
+  });
+  const codes = annotateCodes(seedIfEmpty(CACHE.codes));
   return { codes, cached: false, fetchedAt: CACHE.fetchedAt };
 }
 
-module.exports = { getCodes, scrapeAll, scrapePullpush, scrapeBing, extractCodes, detectTerms, SEED_CODES };
-module.exports._test = { setScrapeImpl: _setScrapeImpl, resetCache: _resetCache, cache: () => CACHE, MIN_INTERVAL_MS, TTL_MS };
+module.exports = { getCodes, scrapeAll, scrapeAllWithStats, scrapePullpush, scrapeBing, extractCodes, detectTerms, annotateCodes, filterCodes, getHistory, SEED_CODES };
+module.exports._test = { setScrapeImpl: _setScrapeImpl, resetCache: _resetCache, resetHistory: _resetHistory, cache: () => CACHE, MIN_INTERVAL_MS, TTL_MS, STALE_AFTER_MS };

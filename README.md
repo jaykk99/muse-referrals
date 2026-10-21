@@ -26,8 +26,28 @@ Reddit's own JSON and DuckDuckGo block datacenter IPs, so they're not used.
 
 ## API
 
-- `GET /api/codes` — cached codes, newest first (`?force=1` to refresh)
+- `GET /api/codes` — cached codes, newest first (`?force=1` to refresh, `?fresh=1` for fresh only, `?q=` to filter)
 - `GET /api/scrape` — force a fresh scrape
+- `GET /api/history` — last 20 scrape runs on this instance (timestamps, per-source stats, errors)
+- `GET /api/export?format=csv|json` — download the cached code list (never triggers a scrape)
+- `GET /api/stats` — aggregate stats: fresh/stale/seed counts, terms coverage, top sources
+
+Full reference: [`docs/API.md`](docs/API.md). Changelog: [`CHANGELOG.md`](CHANGELOG.md).
+
+Codes include `stale: true` + `ageDays` when found more than 14 days ago —
+codes have limited uses, so old ones are probably used up. This is a label,
+not verification (only redeeming verifies).
+
+## Frontend features
+
+- **Favorites** (★): saved in `localStorage` on the device only — nothing uploaded
+- **Hide** codes you're not interested in; **mark as tried** to track attempts
+- **Sort**: newest-first (fresh codes float above stale ones) or oldest-first
+- **Fresh-only filter** + stale counts in the status line
+- **Filter** matches code, source title, terms, and post context
+- **Copy all** visible codes to clipboard
+- **Export**: CSV / JSON download buttons
+- **Scrape history** panel: per-instance run log with per-source results
 
 ## Deploy (Vercel)
 

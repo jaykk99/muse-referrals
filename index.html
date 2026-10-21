@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Muse Referral Codes — Public Code Board</title>
 <meta name="description" content="Publicly posted Meta Muse invite/referral codes, newest first. Validity not verified — redeem within 48h of signup.">
+<meta name="theme-color" content="#0b0e14">
+<meta property="og:title" content="Muse Referral Codes — Public Code Board">
+<meta property="og:description" content="Publicly posted Meta Muse invite codes, newest first. Not verified — try the newest first.">
+<meta property="og:type" content="website">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -21,9 +25,25 @@
 
 <main class="wrap">
   <div class="controls">
-    <input id="filter" type="search" placeholder="Filter codes…" autocomplete="off">
+    <input id="filter" type="search" placeholder="Filter codes, sources, terms…" autocomplete="off">
     <div id="meta" class="meta">loading…</div>
   </div>
+
+  <div class="toolbar">
+    <button id="sortBtn" class="tbtn" type="button">↓ Newest</button>
+    <button id="favFilterBtn" class="tbtn" type="button">★ Favorites</button>
+    <button id="staleFilterBtn" class="tbtn" type="button">✓ Fresh only</button>
+    <button id="copyAllBtn" class="tbtn" type="button">⧉ Copy all</button>
+    <button id="exportCsvBtn" class="tbtn" type="button">⬇ CSV</button>
+    <button id="exportJsonBtn" class="tbtn" type="button">⬇ JSON</button>
+  </div>
+
+  <section class="card hist">
+    <button id="histToggle" class="hist-toggle" type="button">▸ Scrape history</button>
+    <div id="histPanel" class="hist-panel">
+      <div id="histBody"></div>
+    </div>
+  </section>
 
   <section id="howto" class="card howto">
     <h2>How to redeem</h2>
@@ -41,6 +61,7 @@
   <footer class="foot">
     Codes scraped from public posts (Reddit, public web). Cached 30 min to respect rate limits.
     Not affiliated with Meta. Tokens are usage credit, not cash.
+    Favorites, hidden codes, and "tried" marks live only in this browser (localStorage) — nothing is uploaded.
   </footer>
 </main>
 

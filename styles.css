@@ -33,3 +33,29 @@ body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,Bl
 .foot{margin-top:24px;font-size:12px;color:var(--mut);line-height:1.6;text-align:center}
 .spin{display:inline-block;animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
+/* toolbar */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.tbtn{background:#1d2637;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:8px 13px;font-size:13px;font-weight:600;cursor:pointer}
+.tbtn:hover{border-color:var(--acc)}
+.tbtn.on{background:var(--acc);color:#0b0e14;border-color:var(--acc)}
+/* card management buttons */
+.cardbtns{display:flex;gap:8px;align-items:center}
+.iconbtn{background:#1d2637;color:var(--mut);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:16px;cursor:pointer;line-height:1}
+.iconbtn.on{color:#ffd166;border-color:#ffd166}
+.manage{display:flex;align-items:center;gap:8px;font-size:12px}
+.linkbtn{background:none;border:0;color:var(--mut);font-size:12px;cursor:pointer;padding:2px 0;text-decoration:underline}
+.linkbtn:hover{color:var(--txt)}
+.dotsep{color:var(--line)}
+.stale{display:inline-block;font-size:11.5px;color:var(--mut);border:1px solid var(--line);border-radius:20px;padding:1px 9px;margin-left:4px}
+/* history panel */
+.hist{padding:0;overflow:hidden}
+.hist-toggle{width:100%;background:none;border:0;color:var(--txt);font-size:14px;font-weight:700;text-align:left;padding:14px;cursor:pointer;font-family:inherit}
+.hist-panel{display:none;padding:0 14px 14px}
+.hist-panel.open{display:block}
+.hist-row{display:grid;grid-template-columns:22px 76px 1fr;gap:4px 10px;padding:9px 0;border-top:1px solid var(--line);font-size:12.5px;align-items:baseline}
+.hist-row:first-child{border-top:0}
+.hist-ok{color:var(--ok);font-weight:800}
+.hist-mut{color:var(--mut)}
+.hist-err{color:var(--warn);grid-column:1/-1;font-size:12px}
+.hist-empty{color:var(--mut);font-size:13px;padding:8px 0}
+.hist-note{color:var(--mut);font-size:11.5px;margin-top:10px;font-style:italic}
