@@ -126,6 +126,10 @@ function render() {
   if (hiddenCount) t += ' (' + hiddenCount + ' hidden)';
   if (lastMeta) t += ' — ' + lastMeta;
   metaEl.textContent = t;
+  const freshCount = ALL.filter((c) => !c.stale).length;
+  document.title = freshCount
+    ? '(' + freshCount + ' fresh) Muse Referral Codes'
+    : 'Muse Referral Codes — Public Code Board';
 }
 
 async function copyCode(code, btn) {
